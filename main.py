@@ -99,6 +99,7 @@ with note_col:
     category_orders={"영화 유형": active_symbols},
     labels={"가로축 값": x_display, "세로축 값": y_display},
     title=f"{n_clusters}개 묶음으로 살펴보는 영화 유형",
+    )
 fig2d.update_traces(marker={"size": 8, "opacity": 0.8})
 fig2d.update_layout(legend_title_text="영화 유형")
 st.plotly_chart(fig2d, use_container_width=True)
