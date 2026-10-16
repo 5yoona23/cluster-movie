@@ -1,4 +1,98 @@
-X = valid[selected_features].astype(float)
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+DATA_URL = "https://raw.githubusercontent.com/it-teacher-go/data-share-/main/kobis_movies.csv"
+
+st.set_page_config(
+    page_title="영화 유형 나누기",
+    page_icon="🎬",
+    layout="wide"
+)
+
+st.title("🎬 영화 유형 나누기")
+st.caption("영화 데이터를 바탕으로 비슷한 특징을 가진 영화끼리 세 유형으로 묶습니다.")
+
+@st.cache_data
+def load_data():
+    data = pd.read_csv(DATA_URL, encoding="utf-8")
+    return data
+
+try:
+    raw_df = load_data()
+except Exception as e:
+    st.error("데이터를 불러오지 못했습니다. CSV 주소가 공개되어 있고 올바른지 확인해 주세요.")
+    st.code(str(e))
+    st.stop()
+
+required_columns = [
+    "movieCd", "movieNm", "openDt", "genre", "nation", "first_scrn",
+    "first_show", "first_date", "peak", "first_week_audi",
+    "total_audi", "days_in_top10"
+]
+missing_columns = [col for col in required_columns if col not in raw_df.columns]
+if missing_columns:
+    st.error("CSV에서 필요한 열을 찾지 못했습니다: " + ", ".join(missing_columns))
+    st.write("실제 열 이름:", list(raw_df.columns))
+    st.stop()
+
+# 숫자 열을 숫자형으로 변환
+numeric_columns = ["first_scrn", "first_show", "first_date", "peak",
+                   "first_week_audi", "total_audi", "days_in_top10"]
+df = raw_df.copy()
+for col in numeric_columns:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# 원래 단위의 속성 4개
+df["스크린 수"] = df["first_scrn"]
+df["누적 관객"] = df["total_audi"]
+df["10위권 일수"] = df["days_in_top10"]
+
+# 롱런 지수 계산: 첫 주 관객이 0인 영화는 계산 대상에서 제외
+df["롱런 지수"] = df["total_audi"] / df["first_week_audi"].where(df["first_week_audi"] > 0)
+df["롱런 지수"] = df["롱런 지수"].clip(upper=20)
+
+feature_original = ["스크린 수", "누적 관객", "10위권 일수", "롱런 지수"]
+# 네 속성 중 결측값이 있거나 첫 주 관객이 0 이하인 영화는 제외
+valid = df.dropna(subset=feature_original + ["movieNm"]).copy()
+valid = valid[valid["first_week_audi"] > 0].copy()
+# 로그 변환은 양수에만 가능하므로 0 이하 값도 제외
+valid = valid[(valid["스크린 수"] > 0) & (valid["누적 관객"] > 0)].copy()
+
+valid["로그 스크린 수"] = valid["스크린 수"].apply(lambda x: __import__("math").log10(x))
+valid["로그 누적 관객"] = valid["누적 관객"].apply(lambda x: __import__("math").log10(x))
+
+feature_map = {
+    "스크린 수 (상용로그)": "로그 스크린 수",
+    "누적 관객 (상용로그)": "로그 누적 관객",
+    "10위권 일수": "10위권 일수",
+    "롱런 지수": "롱런 지수",
+}
+display_to_feature = {
+    "스크린 수 (상용로그)": "스크린 수",
+    "누적 관객 (상용로그)": "누적 관객",
+    "10위권 일수": "10위권 일수",
+    "롱런 지수": "롱런 지수",
+}
+
+st.write(f"**전체 영화 {len(raw_df):,}편 · 분석에 사용한 영화 {len(valid):,}편**")
+
+if len(valid) < 3:
+    st.error("유효한 영화가 3편보다 적어 세 유형으로 나눌 수 없습니다.")
+    st.stop()
+
+st.subheader("1. 유형을 나눌 속성 선택")
+selected_display_features = st.multiselect(
+    "군집 분석에 사용할 속성을 두 개 이상 선택하세요.",
+    options=list(feature_map.keys()),
+    default=list(feature_map.keys())
+)
+if len(selected_display_features) < 2:
+    st.warning("군집 분석을 하려면 속성을 두 개 이상 선택해야 합니다.")
+    st.stop()
+    X = valid[selected_features].astype(float)
 
 # 선택한 속성을 표준화한 후 K-평균 군집화
 X_scaled = StandardScaler().fit_transform(X)
