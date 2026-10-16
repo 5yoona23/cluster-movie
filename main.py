@@ -1,124 +1,126 @@
-
-missing_features = [feature for feature in selected_features if feature not in df.columns]
-if missing_features:
-    st.error("선택한 속성을 계산하지 못했습니다: " + ", ".join(missing_features))
-    st.stop()
-
-X = df[selected_features].astype(float)
-X_scaled = StandardScaler().fit_transform(X)
-model = KMeans(n_clusters=3, random_state=42, n_init=10)
-df["군집번호"] = model.fit_predict(X_scaled)
-
-cluster_order = (
-    df.groupby("군집번호")["total_audi"].mean().sort_values(ascending=False).index.tolist()
-)
-cluster_labels = {
-    cluster_id: ["㉮", "㉯", "㉰"][rank]
-    for rank, cluster_id in enumerate(cluster_order)
-}
-df["영화 유형"] = df["군집번호"].map(cluster_labels)
-
-st.caption(
-    "㉮·㉯·㉰는 누적 관객 평균이 높은 유형부터 붙인 이름입니다. "
-    "유형은 정답이 아니라 선택한 속성에 따른 상대적 묶음입니다."
-)
-
-st.subheader("2. 2차원 산점도")
-col_x, col_y = st.columns(2)
-with col_x:
-    x_feature = st.selectbox("가로축 속성", selected_features, index=0, key="scatter_x")
-with col_y:
-    y_feature = st.selectbox(
-        "세로축 속성", selected_features, index=1, key="scatter_y"
-    )
-
-fig2d = px.scatter(
-    df,
-    x=x_feature,
-    y=y_feature,
     color="영화 유형",
-    hover_name="movieNm",
-    hover_data={"영화 유형": True, x_feature: ":.3f", y_feature: ":.3f"},
     category_orders={"영화 유형": ["㉮", "㉯", "㉰"]},
+    hover_name="영화 제목",
+    hover_data={
+        "영화 유형": True,
+        "first_scrn": ":,.0f",
+        "total_audi": ":,.0f",
+        "days_in_top10": ":,.0f",
+        "롱런 지수": ":.2f",
+    },
+    labels={
+        x_feature: FEATURE_LABELS[x_feature],
+        y_feature: FEATURE_LABELS[y_feature],
+        "영화 유형": "영화 유형",
+    },
     title="선택한 두 속성으로 본 영화 유형",
 )
-fig2d.update_traces(marker={"size": 8, "opacity": 0.78})
-fig2d.update_layout(legend_title_text="영화 유형", margin=dict(l=20, r=20, t=55, b=20))
-st.plotly_chart(fig2d, use_container_width=True)
+scatter_2d.update_traces(marker={"size": 8, "opacity": 0.75})
+scatter_2d.update_layout(legend_title_text="영화 유형")
+st.plotly_chart(scatter_2d, use_container_width=True)
 
+st.divider()
 st.subheader("3. 3차원 산점도")
+
 if len(selected_features) < 3:
-    st.info("3차원 산점도를 보려면 군집화 속성을 세 개 이상 선택해 주세요.")
+    st.info("3차원 산점도를 보려면 위에서 분석 속성을 세 개 이상 선택해 주세요.")
 else:
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        x3 = st.selectbox("X축 속성", selected_features, index=0, key="x3")
-    with c2:
-        y3 = st.selectbox("Y축 속성", selected_features, index=1, key="y3")
-    with c3:
-        z3 = st.selectbox("Z축 속성", selected_features, index=2, key="z3")
+    axis3_col1, axis3_col2, axis3_col3 = st.columns(3)
+    with axis3_col1:
+        x3_feature = st.selectbox(
+            "X축 속성",
+            options=selected_features,
+            index=0,
+            format_func=lambda feature: FEATURE_LABELS[feature],
+            key="scatter3_x",
+        )
+    with axis3_col2:
+        y3_feature = st.selectbox(
+            "Y축 속성",
+            options=selected_features,
+            index=1,
+            format_func=lambda feature: FEATURE_LABELS[feature],
+            key="scatter3_y",
+        )
+    with axis3_col3:
+        z3_feature = st.selectbox(
+            "Z축 속성",
+            options=selected_features,
+            index=2,
+            format_func=lambda feature: FEATURE_LABELS[feature],
+            key="scatter3_z",
+        )
 
-    fig3d = px.scatter_3d(
+    scatter_3d = px.scatter_3d(
         df,
-        x=x3,
-        y=y3,
-        z=z3,
+        x=x3_feature,
+        y=y3_feature,
+        z=z3_feature,
         color="영화 유형",
-        hover_name="movieNm",
-        hover_data={"영화 유형": True},
         category_orders={"영화 유형": ["㉮", "㉯", "㉰"]},
-        title="마우스로 회전하며 살펴보는 영화 유형",
+        hover_name="영화 제목",
+        hover_data={
+            "영화 유형": True,
+            "first_scrn": ":,.0f",
+            "total_audi": ":,.0f",
+            "days_in_top10": ":,.0f",
+            "롱런 지수": ":.2f",
+        },
+        labels={
+            x3_feature: FEATURE_LABELS[x3_feature],
+            y3_feature: FEATURE_LABELS[y3_feature],
+            z3_feature: FEATURE_LABELS[z3_feature],
+            "영화 유형": "영화 유형",
+        },
+        title="세 속성으로 본 영화 유형",
     )
-    fig3d.update_traces(marker={"size": 3, "opacity": 0.8})
-    fig3d.update_layout(
-        legend_title_text="영화 유형",
-        margin=dict(l=0, r=0, t=55, b=0),
-        scene={"xaxis_title": x3, "yaxis_title": y3, "zaxis_title": z3},
-    )
-    st.plotly_chart(fig3d, use_container_width=True)
+    scatter_3d.update_traces(marker={"size": 3, "opacity": 0.8})
+    scatter_3d.update_layout(legend_title_text="영화 유형")
+    st.plotly_chart(scatter_3d, use_container_width=True)
 
+st.divider()
 st.subheader("4. 유형별 편수와 속성 평균")
-counts = df.groupby("영화 유형").size().rename("편수")
-means = df.groupby("영화 유형").agg(
-    **{
-        "스크린 수 평균": ("first_scrn", "mean"),
-        "누적 관객 평균": ("total_audi", "mean"),
-        "10위권 일수 평균": ("days_in_top10", "mean"),
-        "롱런 지수 평균": ("롱런 지수", "mean"),
-    }
-)
-summary = counts.to_frame().join(means).reindex(["㉮", "㉯", "㉰"]).reset_index()
-summary = summary.rename(columns={"index": "영화 유형"})
-summary["스크린 수 평균"] = summary["스크린 수 평균"].round(1)
-summary["누적 관객 평균"] = summary["누적 관객 평균"].round(0).astype("Int64")
-summary["10위권 일수 평균"] = summary["10위권 일수 평균"].round(2)
-summary["롱런 지수 평균"] = summary["롱런 지수 평균"].round(2)
-st.dataframe(summary, hide_index=True, use_container_width=True)
-st.caption("평균 표의 스크린 수·누적 관객은 원래 단위이며, 로그값이 아닙니다.")
 
-st.subheader("5. 유형별 누적 관객 TOP 5")
+summary_rows = []
 for label in ["㉮", "㉯", "㉰"]:
-    group = df[df["영화 유형"] == label].sort_values("total_audi", ascending=False).head(5)
-    with st.expander(f"{label} 유형 — 누적 관객 상위 영화", expanded=True):
-        if group.empty:
-            st.write("이 유형에 해당하는 영화가 없습니다.")
-        else:
-            top5 = group[["movieNm", "total_audi"]].rename(
-                columns={"movieNm": "영화 제목", "total_audi": "누적 관객"}
-            ).copy()
-            top5["누적 관객"] = top5["누적 관객"].map(lambda value: f"{int(value):,}")
-            top5.insert(0, "순위", range(1, len(top5) + 1))
-            st.dataframe(top5, hide_index=True, use_container_width=True)
+    group = df[df["영화 유형"] == label]
+    summary_rows.append({
+        "영화 유형": label,
+        "편수": len(group),
+        "스크린 수 평균": group["first_scrn"].mean(),
+        "누적 관객 평균": group["total_audi"].mean(),
+        "10위권 일수 평균": group["days_in_top10"].mean(),
+        "롱런 지수 평균": group["롱런 지수"].mean(),
+    })
 
-with st.expander("분석 기준 보기"):
-    st.markdown(
-        """
-        - **스크린 수(로그):** `log10(first_scrn)`
-        - **누적 관객(로그):** `log10(total_audi)`
-        - **10위권 일수:** `days_in_top10` 원래 값
-        - **롱런 지수:** `min(total_audi / first_week_audi, 20)`
-        - 필요한 값이 없거나 첫 주 관객이 0 이하인 영화는 제외합니다.
-        - 로그 계산을 위해 스크린 수와 누적 관객이 양수인 영화만 분석합니다.
-        - 선택한 속성은 `StandardScaler`로 표준화하고, `KMeans(n_clusters=3, random_state=42, n_init=10)`으로 묶습니다.
-        """
+summary = pd.DataFrame(summary_rows)
+summary["스크린 수 평균"] = summary["스크린 수 평균"].round(1)
+summary["누적 관객 평균"] = summary["누적 관객 평균"].round(0)
+summary["10위권 일수 평균"] = summary["10위권 일수 평균"].round(1)
+summary["롱런 지수 평균"] = summary["롱런 지수 평균"].round(2)
+st.dataframe(summary, use_container_width=True, hide_index=True)
+
+st.divider()
+st.subheader("5. 유형별 누적 관객 상위 영화")
+
+for label in ["㉮", "㉯", "㉰"]:
+    group = df[df["영화 유형"] == label].sort_values(
+        "total_audi", ascending=False
+    ).head(5)
+
+    st.markdown(f"**{label} 유형 — 누적 관객 상위 {len(group)}편**")
+    top_movies = group[["영화 제목", "total_audi"]].rename(
+        columns={
+            "영화 제목": "영화 제목",
+            "total_audi": "누적 관객",
+        }
+    ).copy()
+    top_movies["누적 관객"] = top_movies["누적 관객"].map(
+        lambda value: f"{value:,.0f}"
     )
+    st.dataframe(top_movies, use_container_width=True, hide_index=True)
+
+st.caption(
+    "참고: K-평균은 정답 유형을 맞히는 모델이 아니라, 선택한 속성이 비슷한 영화를 "
+    "세 그룹으로 묶는 비지도 학습 방법입니다. 다른 속성을 선택하면 유형이 달라질 수 있습니다."
+)
