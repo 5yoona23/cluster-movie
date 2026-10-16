@@ -95,10 +95,12 @@ if len(selected_display_features) < 2:
     X = valid[selected_features].astype(float)
 
 # 선택한 속성을 표준화한 후 K-평균 군집화
+selected_features = [feature_map[name] for name in selected_display_features]
+X = valid[selected_features].astype(float)
+
 X_scaled = StandardScaler().fit_transform(X)
 model = KMeans(n_clusters=3, random_state=42, n_init=10)
 valid["군집 원번호"] = model.fit_predict(X_scaled)
-
 # 원래 단위 누적 관객 평균이 높은 군집부터 ㉮, ㉯, ㉰ 지정
 cluster_order = (
     valid.groupby("군집 원번호")["누적 관객"]
