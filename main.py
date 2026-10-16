@@ -1,4 +1,4 @@
-    color="영화 유형",
+     color="영화 유형",
     category_orders={"영화 유형": ["㉮", "㉯", "㉰"]},
     hover_name="영화 제목",
     hover_data={
